@@ -2,8 +2,8 @@
 import { createClient } from "@/lib/supabase/server";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import ListingActions from "../ListingActions";
-import BidForm from "../BidForm";
+import BidForm from "@/components/listings/BidForm"; // We'll need to create this component
+import ListingActions from "@/components/listings/ListingActions"; // We'll need to create this component
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
