@@ -1,5 +1,5 @@
 // File: app/listings/[id]/page.jsx
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import ListingActions from "../ListingActions";
