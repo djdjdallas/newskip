@@ -1,5 +1,5 @@
 // File: app/categories/page.jsx
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import createClient from "../lib/supabase/client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +9,7 @@ import {
   Smartphone,
   Gamepad,
   Utensils,
+  LucideIcon,
   PenTool,
   Globe,
   HardDrive,
@@ -51,117 +52,37 @@ const getCategoryIcon = (slug) => {
   return matchingKey ? iconMap[matchingKey] : iconMap.default;
 };
 
-// Sample categories data to use if database fetch fails
-const sampleCategories = [
-  {
-    id: 1,
-    name: "Tech Gadgets",
-    slug: "tech-gadgets",
-    description: "The latest tech waitlists for cutting-edge gadgets",
-    listingCount: 24,
-  },
-  {
-    id: 2,
-    name: "Gaming",
-    slug: "gaming",
-    description: "Game consoles, beta access, and early releases",
-    listingCount: 16,
-  },
-  {
-    id: 3,
-    name: "Events & Concerts",
-    slug: "events-concerts",
-    description: "Exclusive event tickets and early access",
-    listingCount: 19,
-  },
-  {
-    id: 4,
-    name: "Limited Edition Products",
-    slug: "limited-edition",
-    description: "Rare drops and limited edition releases",
-    listingCount: 12,
-  },
-  {
-    id: 5,
-    name: "Software & Apps",
-    slug: "software-apps",
-    description: "Early access to software and app betas",
-    listingCount: 15,
-  },
-  {
-    id: 6,
-    name: "Dining & Restaurants",
-    slug: "dining",
-    description: "Reservations for exclusive restaurants",
-    listingCount: 8,
-  },
-  {
-    id: 7,
-    name: "Exclusive Memberships",
-    slug: "memberships",
-    description: "Private clubs and membership-only services",
-    listingCount: 6,
-  },
-  {
-    id: 8,
-    name: "Travel Experiences",
-    slug: "travel",
-    description: "Unique travel opportunities and experiences",
-    listingCount: 9,
-  },
-];
-
 export default async function CategoriesPage() {
-  let categoriesWithCounts = [];
+  const supabase = createClient();
 
-  try {
-    const supabase = createClient();
+  // Fetch all categories
+  const { data: categories, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("name");
 
-    // Fetch all categories
-    const { data: categories, error } = await supabase
-      .from("categories")
-      .select("*")
-      .order("name");
-
-    if (error) {
-      console.error("Error fetching categories:", error);
-      // Fall back to sample data if there's an error
-      categoriesWithCounts = sampleCategories;
-    } else {
-      // For each category, fetch the count of active listings
-      categoriesWithCounts = await Promise.all(
-        (categories || []).map(async (category) => {
-          try {
-            const { count, error: countError } = await supabase
-              .from("waitlist_listings")
-              .select("*", { count: "exact", head: true })
-              .eq("category_id", category.id)
-              .eq("status", "active");
-
-            return {
-              ...category,
-              listingCount: countError ? 0 : count,
-            };
-          } catch (countingError) {
-            console.error("Error counting listings:", countingError);
-            return {
-              ...category,
-              listingCount: 0,
-            };
-          }
-        })
-      );
-    }
-  } catch (e) {
-    console.error("Failed to initialize Supabase client:", e);
-    // Fall back to sample data if there's an error
-    categoriesWithCounts = sampleCategories;
+  if (error) {
+    console.error("Error fetching categories:", error);
   }
 
-  // Sort categories for popular section
-  const popularCategories = [...categoriesWithCounts]
-    .sort((a, b) => b.listingCount - a.listingCount)
-    .slice(0, 4);
+  // For each category, fetch the count of active listings
+  const categoriesWithCounts = await Promise.all(
+    (categories || []).map(async (category) => {
+      const { count, error: countError } = await supabase
+        .from("waitlist_listings")
+        .select("*", { count: "exact", head: true })
+        .eq("category_id", category.id)
+        .eq("status", "active");
+
+      return {
+        ...category,
+        listingCount: countError ? 0 : count,
+      };
+    })
+  );
+
+  // Group by main category type (if your DB has a type/group field)
+  // For now, we'll just organize them into one grid
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -198,7 +119,7 @@ export default async function CategoriesPage() {
       {/* Categories Grid */}
       <section className="mb-16">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {categoriesWithCounts.map((category) => (
+          {categoriesWithCounts?.map((category) => (
             <Link key={category.id} href={`/categories/${category.slug}`}>
               <div className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-100 h-full flex flex-col overflow-hidden group">
                 <div className="p-6 flex-grow">
@@ -235,22 +156,25 @@ export default async function CategoriesPage() {
         <h2 className="text-2xl font-bold mb-6">Popular Categories</h2>
         <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl p-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {popularCategories.map((category) => (
-              <Link key={category.id} href={`/categories/${category.slug}`}>
-                <div className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow">
-                  <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 mx-auto mb-3">
-                    {getCategoryIcon(
-                      category.slug || category.name.toLowerCase()
-                    )}
+            {categoriesWithCounts
+              ?.sort((a, b) => b.listingCount - a.listingCount)
+              .slice(0, 4)
+              .map((category) => (
+                <Link key={category.id} href={`/categories/${category.slug}`}>
+                  <div className="bg-white rounded-lg p-4 text-center hover:shadow-md transition-shadow">
+                    <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 mx-auto mb-3">
+                      {getCategoryIcon(
+                        category.slug || category.name.toLowerCase()
+                      )}
+                    </div>
+                    <h3 className="font-medium">{category.name}</h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {category.listingCount}{" "}
+                      {category.listingCount === 1 ? "listing" : "listings"}
+                    </p>
                   </div>
-                  <h3 className="font-medium">{category.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {category.listingCount}{" "}
-                    {category.listingCount === 1 ? "listing" : "listings"}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
           </div>
         </div>
       </section>
@@ -268,7 +192,7 @@ export default async function CategoriesPage() {
               "Fashion Drops",
               "NFT Collections",
               "Limited Sneakers",
-              "Premium Subscriptions",
+              "Exclusive Memberships",
             ].map((name) => (
               <div
                 key={name}

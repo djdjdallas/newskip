@@ -1,4 +1,5 @@
 // File: app/categories/page.jsx
+import { createClient } from "@/lib/supabase/server";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
